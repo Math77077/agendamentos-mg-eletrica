@@ -1,0 +1,21 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const authRoutes = require('./routes/authRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/auth', authRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/appointments', appointmentRoutes);
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Solarev Server is running' });
+});
+
+module.exports = app;
