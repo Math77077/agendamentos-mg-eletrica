@@ -3,11 +3,26 @@ import { io } from 'socket.io-client'
 import { api } from '../services/api'
 import { AuthContext } from '../contexts/AuthContext';
 
+const toDateTimeInputValue = (date) => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
 
 export default function List() {
   const [appointments, setAppointments] = useState([]);
+  const [services, setServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState('');
   const [loading, setLoading] = useState(true);
   const { logout } = useContext(AuthContext);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    serviceId: '',
+    name: '',
+    phone: '',
+    address: '',
+    appointmentDate: ''
+  });
 
   useEffect(() => {
     async function fetchAppointments() {
@@ -23,10 +38,30 @@ export default function List() {
 
     fetchAppointments();
 
+    async function fetchServices() {
+      try {
+        const response = await api.get('/services');
+        setServices(response.data);
+      } catch (error) {
+        console.error('Erro ao buscar serviços:', error);
+        setServicesError('Não foi possível carregar os serviços para edição.');
+      } finally {
+        setServicesLoading(false);
+      }
+    }
+
+    fetchServices();
+
     const socket = io('http://localhost:5000');
 
     socket.on('appointment_created', (newAppointment) => {
       setAppointments((prev) => [newAppointment, ...prev]);
+    });
+
+    socket.on('appointment_updated', (updatedAppointment) => {
+      setAppointments((prev) =>
+        prev.map((item) => item._id === updatedAppointment._id ? updatedAppointment : item)
+      );
     });
 
     return () => {
@@ -53,58 +88,214 @@ export default function List() {
     return <p>Carregando agendamentos...</p>;
   }
 
+  const handleStartEdit = (item) => {
+    setEditingId(item._id);
+    setEditForm({
+      serviceId: item.service?._id || '',
+      phone: item.phone || '',
+      address: item.address || '',
+      name: item.name || item.user?.name || '',
+      appointmentDate: item.appointmentDate ? toDateTimeInputValue(new Date(item.appointmentDate)) : ''
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  // envia os dados atualizados para a API e atualiza a tela
+  const handleSaveEdit = async (id) => {
+    try {
+      const response = await api.put(`/appointments/${id}`, {
+        serviceId: editForm.serviceId,
+        name: editForm.name.trim(),
+        phone: editForm.phone.replace(/\D/g, ''),
+        address: editForm.address.trim(),
+        appointmentDate: new Date(editForm.appointmentDate).toISOString()
+      });
+
+      setAppointments((prev) =>
+        prev.map((item) => (item._id === id ? response.data : item))
+      );
+
+      setEditingId(null);
+    } catch (error) {
+      console.error('Erro ao editar agendamento:', error);
+      alert(error.response?.data?.message || 'Erro ao salvar alterações do agendamento.');
+    }
+  };
+
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <main>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Painel de agendamentos</h1>
         <button onClick={logout}>Sair</button>
-      </div>
+      </header>
 
       <p>Lista de agendamentos confirmados e pendentes.</p>
       
       {appointments.length === 0 ? (
         <p>Nenhum agendamento encontrado.</p>  
       ) : (
-        <ul> 
+        <ul aria-label="Agendamentos">
           {appointments.map((item) => (
             <li key={item._id} style={{ marginBottom: '10px' }}>
-              <strong>ID:</strong> {item._id.slice(-5)} | {' '} 
-              <strong>Serviço:</strong> {item.service?.title} | {' '}
-              <strong>Cliente:</strong> {item.user?.name} | {' '}
-              <strong>Data:</strong> {new Date(item.appointmentDate).toLocaleString('pt-BR', {
-                dateStyle: 'short',
-                timeStyle: 'short'
-              })} | {' '}
-              <strong>Status:</strong> {item.status}
-              
-              <div style={{ marginTop: '5px' }}>
-                <button
-                  onClick={() => handleStatusChange(item._id, 'confirmed')}
-                  disabled={item.status === 'confirmed'}
-                  style={{ marginRight: '8px' }}
+              {editingId === item._id ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveEdit(item._id);
+                  }}
                 >
-                  Confirmar
-                </button>
+                  <h2>Editando agendamento {item._id.slice(-5)}</h2>
+                  {servicesError && <p role="alert">{servicesError}</p>}
+                  <div style={{ marginTop: '8px' }}>
+                    <label htmlFor={`service-${item._id}`}>Serviço desejado: </label>
+                    <select
+                      id={`service-${item._id}`}
+                      value={editForm.serviceId}
+                      onChange={(e) => setEditForm({ ...editForm, serviceId: e.target.value })}
+                      required
+                      disabled={servicesLoading || Boolean(servicesError)}
+                      style={{ width: '100%', padding: '8px' }}
+                    >
+                      {!services.some((service) => service._id === editForm.serviceId) && item.service && (
+                        <option value={item.service._id}>
+                          {item.service.title} (serviço inativo)
+                        </option>
+                      )}
+                      {services.map((service) => (
+                        <option key={service._id} value={service._id}>
+                          {service.title} - {service.price > 0 ? `R$ ${service.price}` : 'Preço sob avaliação'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label htmlFor={`name-${item._id}`}>Nome: </label>
+                    <input
+                      id={`name-${item._id}`}
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label htmlFor={`phone-${item._id}`}>Telefone: </label>
+                    <input
+                      id={`phone-${item._id}`}
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label htmlFor={`address-${item._id}`}>Endereço: </label>
+                    <input
+                      id={`address-${item._id}`}
+                      type="text"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label htmlFor={`appointment-date-${item._id}`}>Data/Hora: </label>
+                    <input
+                      id={`appointment-date-${item._id}`}
+                      type="datetime-local"
+                      value={editForm.appointmentDate}
+                      onChange={(e) => setEditForm({ ...editForm, appointmentDate: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginTop: '10px' }}>
+                    <button
+                      type="submit"
+                      style={{ marginRight: '8px' }}
+                      disabled={servicesLoading || Boolean(servicesError)}
+                    >
+                      Salvar
+                    </button>
+                    <button type="button" onClick={handleCancelEdit}>Cancelar</button>
+                  </div>
+                </form>
+              ) : (
+                <article aria-labelledby={`appointment-${item._id}`}>
+                  <h2 id={`appointment-${item._id}`}>Agendamento {item._id.slice(-5)}</h2>
+                  <dl>
+                    <div>
+                      <dt>Serviço</dt>
+                      <dd>{item.service?.title || 'Não informado'}</dd>
+                    </div>
+                    <div>
+                      <dt>Cliente</dt>
+                      <dd>{item.name || item.user?.name || 'Não informado'}</dd>
+                    </div>
+                    <div>
+                      <dt>Telefone</dt>
+                      <dd>{item.phone || 'Não informado'}</dd>
+                    </div>
+                    <div>
+                      <dt>Endereço</dt>
+                      <dd>{item.address || 'Não informado'}</dd>
+                    </div>
+                    <div>
+                      <dt>Data</dt>
+                      <dd>{new Date(item.appointmentDate).toLocaleString('pt-BR', {
+                        dateStyle: 'short',
+                        timeStyle: 'short'
+                      })}</dd>
+                    </div>
+                    <div>
+                      <dt>Status</dt>
+                      <dd>{item.status}</dd>
+                    </div>
+                  </dl>
 
-                <button
-                  onClick={() => handleStatusChange(item._id, 'cancelled')}
-                  disabled={item.status === 'cancelled'}
-                  style={{ marginRight: '8px' }}
-                >
-                  Cancelar
-                </button>
+                  <div role="group" aria-label={`Ações do agendamento ${item._id.slice(-5)}`} style={{ marginTop: '5px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(item)}
+                      disabled={servicesLoading || Boolean(servicesError)}
+                      style={{ marginRight: '8px' }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(item._id, 'confirmed')}
+                      disabled={item.status === 'confirmed'}
+                      style={{ marginRight: '8px' }}
+                    >
+                      Confirmar
+                    </button>
 
-                <button
-                  onClick={() => handleStatusChange(item._id, 'completed')}
-                  disabled={item.status === 'completed'}
-                >
-                  Concluido
-                </button>
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(item._id, 'cancelled')}
+                      disabled={item.status === 'cancelled'}
+                      style={{ marginRight: '8px' }}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(item._id, 'completed')}
+                      disabled={item.status === 'completed'}
+                    >
+                      Concluido
+                    </button>
+                  </div>
+                </article>
+              )}
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </main>
   );
 }
