@@ -29,6 +29,7 @@ describe('Solarev Backend Unit Tests', () => {
     describe('Appointment update validation schema (Joi)', () => {
       it('should validate the required appointment details', () => {
         const validPayload = {
+          serviceId: '507f1f77bcf86cd799439011',
           name: 'Carlos Silva',
           phone: '11999999999',
           address: 'Rua das Flores, 123',
@@ -41,6 +42,7 @@ describe('Solarev Backend Unit Tests', () => {
 
       it('should allow editing an appointment with a date in the past', () => {
         const validPayload = {
+          serviceId: '507f1f77bcf86cd799439011',
           name: 'Carlos Silva',
           phone: '11999999999',
           address: 'Rua das Flores, 123',
@@ -63,6 +65,7 @@ describe('Solarev Backend Unit Tests', () => {
 
       it('should reject an invalid phone number', () => {
         const invalidPayload = {
+          serviceId: '507f1f77bcf86cd799439011',
           name: 'Carlos Silva',
           phone: '123',
           address: 'Rua das Flores, 123',

@@ -14,6 +14,7 @@ const appointmentValidation = (data) => {
 
 const appointmentUpdateValidation = (data) => {
   const schema = Joi.object({
+    serviceId: Joi.string().hex().length(24).required(),
     name: Joi.string().trim().min(2).max(100).required(),
     phone: Joi.string().pattern(/^[0-9]{10,11}$/).required(),
     address: Joi.string().trim().min(5).required(),

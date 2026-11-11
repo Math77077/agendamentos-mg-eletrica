@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "seed:services": "node src/scripts/seedServices.js",
     "test": "jest --runInBand --detectOpenHandles --forceExit"
   },
   "keywords": [],

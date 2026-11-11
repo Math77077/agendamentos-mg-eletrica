@@ -99,17 +99,25 @@ const updateAppointment = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    )
-      .populate('user', 'name email phone')
-      .populate('service', 'title price durationMinutes');
-
+    const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
+
+    const { serviceId, name, phone, address, appointmentDate } = req.body;
+    const service = await Service.findById(serviceId);
+    if (!service || (!service.isActive && service._id.toString() !== appointment.service.toString())) {
+      return res.status(404).json({ message: 'Service not found or inactive' });
+    }
+
+    appointment.service = serviceId;
+    appointment.name = name;
+    appointment.phone = phone;
+    appointment.address = address;
+    appointment.appointmentDate = appointmentDate;
+    await appointment.save();
+    await appointment.populate('user', 'name email phone');
+    await appointment.populate('service', 'title price durationMinutes');
 
     const io = req.app.get('io');
     if (io) {
