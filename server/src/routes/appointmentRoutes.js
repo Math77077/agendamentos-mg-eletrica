@@ -4,6 +4,7 @@ const {
   createAppointment,
   getMyAppointments,
   getAllAppointments,
+  updateAppointment,
   updateAppointmentStatus,
   cancelAppointment,
 } = require('../controllers/appointmentController');
@@ -14,6 +15,7 @@ router.get('/my', protect, getMyAppointments);
 router.patch('/:id/cancel', protect, cancelAppointment);
 
 router.get('/', protect, isAdmin, getAllAppointments);
+router.put('/:id', protect, isAdmin, updateAppointment);
 router.patch('/:id/status', protect, isAdmin, updateAppointmentStatus);
 
 module.exports = router;

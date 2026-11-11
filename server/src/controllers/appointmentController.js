@@ -1,6 +1,9 @@
 const Appointment = require('../models/Appointment');
 const Service = require('../models/Service');
-const { appointmentValidation } = require('../validations/appointmentValidation');
+const {
+  appointmentValidation,
+  appointmentUpdateValidation,
+} = require('../validations/appointmentValidation');
 
 const createAppointment = async (req, res) => {
   try {
@@ -9,7 +12,7 @@ const createAppointment = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { serviceId, appointmentDate, address, notes } = req.body;
+    const { serviceId, appointmentDate, name, phone, address, notes } = req.body;
 
     const serviceExists = await Service.findById(serviceId);
     if (!serviceExists || !serviceExists.isActive) {
@@ -20,6 +23,8 @@ const createAppointment = async (req, res) => {
       user: req.user.id,
       service: serviceId,
       appointmentDate,
+      name,
+      phone,
       address,
       notes,
     });
@@ -87,6 +92,36 @@ const updateAppointmentStatus = async (req, res) => {
   }
 };
 
+const updateAppointment = async (req, res) => {
+  try {
+    const { error } = appointmentUpdateValidation(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const appointment = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
+      .populate('user', 'name email phone')
+      .populate('service', 'title price durationMinutes');
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('appointment_updated', appointment);
+    }
+
+    res.status(200).json(appointment);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 const cancelAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id);
@@ -111,6 +146,7 @@ module.exports = {
   createAppointment,
   getMyAppointments,
   getAllAppointments,
+  updateAppointment,
   updateAppointmentStatus,
   cancelAppointment,
 };

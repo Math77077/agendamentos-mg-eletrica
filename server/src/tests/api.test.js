@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../app');
 const { registerValidation, loginValidation } = require('../validations/authValidation');
+const { appointmentUpdateValidation } = require('../validations/appointmentValidation');
 
 describe('Solarev Backend Unit Tests', () => {
   
@@ -23,6 +24,54 @@ describe('Solarev Backend Unit Tests', () => {
       };
       const { error } = registerValidation(validPayload);
       expect(error).toBeUndefined();
+    });
+
+    describe('Appointment update validation schema (Joi)', () => {
+      it('should validate the required appointment details', () => {
+        const validPayload = {
+          name: 'Carlos Silva',
+          phone: '11999999999',
+          address: 'Rua das Flores, 123',
+          appointmentDate: new Date(Date.now() + 86400000).toISOString(),
+        };
+
+        const { error } = appointmentUpdateValidation(validPayload);
+        expect(error).toBeUndefined();
+      });
+
+      it('should allow editing an appointment with a date in the past', () => {
+        const validPayload = {
+          name: 'Carlos Silva',
+          phone: '11999999999',
+          address: 'Rua das Flores, 123',
+          appointmentDate: new Date(Date.now() - 86400000).toISOString(),
+        };
+
+        const { error } = appointmentUpdateValidation(validPayload);
+        expect(error).toBeUndefined();
+      });
+
+      describe('PUT /api/appointments/:id', () => {
+        it('should require authentication', async () => {
+          const response = await request(app)
+            .put('/api/appointments/507f1f77bcf86cd799439011')
+            .send({});
+
+          expect(response.statusCode).toBe(401);
+        });
+      });
+
+      it('should reject an invalid phone number', () => {
+        const invalidPayload = {
+          name: 'Carlos Silva',
+          phone: '123',
+          address: 'Rua das Flores, 123',
+          appointmentDate: new Date(Date.now() + 86400000).toISOString(),
+        };
+
+        const { error } = appointmentUpdateValidation(invalidPayload);
+        expect(error).toBeDefined();
+      });
     });
 
     it('should fail validation if email format is invalid', () => {
