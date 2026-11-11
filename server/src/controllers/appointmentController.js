@@ -28,6 +28,11 @@ const createAppointment = async (req, res) => {
       .populate('user', 'name email phone')
       .populate('service', 'title price durationMinutes');
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('appointment_created', populatedAppointment);
+    }
+    
     res.status(201).json(populatedAppointment);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
