@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 import { api } from '../services/api';
 
 
@@ -16,6 +17,16 @@ export default function List() {
     }
 
     fetchAppointments();
+
+    const socket = io('http://localhost:5000');
+
+    socket.on('appointment_created', (newAppointment) => {
+      setAppointments((prev) => [newAppointment, ...prev]);
+    });
+
+    return () => {
+      socket.disconnect();
+    }
   }, []);
 
   return (
@@ -36,7 +47,6 @@ export default function List() {
             <strong>Status:</strong> {item.status}
           </li>
         ))}
-        
       </ul>
     </div>
   );
