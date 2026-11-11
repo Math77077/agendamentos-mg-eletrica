@@ -7,7 +7,6 @@ import { AuthContext } from '../contexts/AuthContext';
 export default function List() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const { logout } = useContext(AuthContext);
 
   useEffect(() => {
@@ -15,7 +14,6 @@ export default function List() {
       try {
         const response = await api.get('/appointments');
         setAppointments(response.data);
-        loading = true;
       } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);
       } finally {
@@ -35,6 +33,21 @@ export default function List() {
       socket.disconnect();
     }
   }, []);
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await api.patch(`/appointments/${id}/status`, { status: newStatus });
+
+      setAppointments((prev) =>
+        prev.map((item) =>
+          item._id === id ? { ...item, status: newStatus } : item
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar status do agendamento:', error);
+      alert(`Erro ao atualizar status: ${error.response?.data?.message || 'Falha na requisição'}`);
+    }
+  };
 
   if (loading) {
     return <p>Carregando agendamentos...</p>;
@@ -63,6 +76,31 @@ export default function List() {
                 timeStyle: 'short'
               })} | {' '}
               <strong>Status:</strong> {item.status}
+              
+              <div style={{ marginTop: '5px' }}>
+                <button
+                  onClick={() => handleStatusChange(item._id, 'confirmed')}
+                  disabled={item.status === 'confirmed'}
+                  style={{ marginRight: '8px' }}
+                >
+                  Confirmar
+                </button>
+
+                <button
+                  onClick={() => handleStatusChange(item._id, 'cancelled')}
+                  disabled={item.status === 'cancelled'}
+                  style={{ marginRight: '8px' }}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={() => handleStatusChange(item._id, 'completed')}
+                  disabled={item.status === 'completed'}
+                >
+                  Concluido
+                </button>
+              </div>
             </li>
           ))}
         </ul>
