@@ -20,10 +20,20 @@ describe('Solarev Backend Unit Tests', () => {
         name: 'Carlos Silva',
         email: 'carlos@solarev.com',
         password: 'password123',
-        role: 'user',
       };
       const { error } = registerValidation(validPayload);
       expect(error).toBeUndefined();
+    });
+
+    it('should reject public registration attempts that provide an admin role', () => {
+      const { error } = registerValidation({
+        name: 'Carlos Silva',
+        email: 'carlos@solarev.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      expect(error).toBeDefined();
     });
 
     describe('Appointment update validation schema (Joi)', () => {
@@ -34,6 +44,19 @@ describe('Solarev Backend Unit Tests', () => {
           phone: '11999999999',
           address: 'Rua das Flores, 123',
           appointmentDate: new Date(Date.now() + 86400000).toISOString(),
+        };
+
+        const { error } = appointmentUpdateValidation(validPayload);
+        expect(error).toBeUndefined();
+      });
+
+      it('should validate a local date-time from the appointment editor', () => {
+        const validPayload = {
+          serviceId: '507f1f77bcf86cd799439011',
+          name: 'Carlos Silva',
+          phone: '11999999999',
+          address: 'Rua das Flores, 123',
+          appointmentDate: '2026-11-16T08:00',
         };
 
         const { error } = appointmentUpdateValidation(validPayload);
@@ -108,6 +131,37 @@ describe('Solarev Backend Unit Tests', () => {
 
       expect(response.statusCode).toBe(400);
       expect(response.body).toHaveProperty('message');
+    });
+
+    it('should reject attempts to create an administrator through public registration', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          name: 'Public Admin',
+          email: 'public-admin@example.com',
+          password: 'password123',
+          role: 'admin',
+        });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toHaveProperty('message');
+    });
+  });
+
+  describe('Protected customer appointment routes', () => {
+    it('should require a user session to create an appointment', async () => {
+      const response = await request(app)
+        .post('/api/appointments')
+        .send({});
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('should require a user session to view personal appointments', async () => {
+      const response = await request(app)
+        .get('/api/appointments/my');
+
+      expect(response.statusCode).toBe(401);
     });
   });
 });
