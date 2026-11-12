@@ -22,7 +22,7 @@ O frontend e o backend são instalados e executados separadamente. Não há um `
 ### 1. Clone o projeto
 
 ```bash
-git clone https://github.com/Math77077/agendamentos-mg-eletrica/
+git clone https://github.com/Math77077/agendamentos-mg-eletrica.git 
 cd agendamentos-mg-eletrica
 ```
 
