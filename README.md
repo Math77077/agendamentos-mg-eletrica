@@ -22,11 +22,10 @@ O frontend e o backend são instalados e executados separadamente. Não há um `
 ### 1. Clone o projeto
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
-cd solarev-agendamentos
+git clone https://github.com/Math77077/agendamentos-mg-eletrica/
+cd agendamentos-mg-eletrica
 ```
 
-Substitua `<URL_DO_REPOSITORIO>` pela URL HTTPS ou SSH do repositório no GitHub.
 
 ### 2. Configure o servidor
 
