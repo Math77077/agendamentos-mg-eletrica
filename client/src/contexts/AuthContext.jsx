@@ -2,6 +2,7 @@ import { createContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
@@ -17,6 +18,7 @@ export function AuthProvider({ children }) {
 
     if (storageUser && storageToken && storageUser !== 'undefined') {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(JSON.parse(storageUser));
         api.defaults.headers.common['Authorization'] = `Bearer ${storageToken}`;
       } catch (error) {
@@ -28,7 +30,7 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, navigationState) => {
     // chamada para a rota de login pública
     const response = await api.post('/auth/login', { email, password });
     const { token, ...userData } = response.data;
@@ -41,23 +43,31 @@ export function AuthProvider({ children }) {
     setUser(userData);
 
     // redireciona de acordo com o papel do usuário
-    if (userData.role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/');
-    }
+    navigate(userData.role === 'admin' ? '/admin' : '/', { state: navigationState });
   };
 
-  const logout = () => {
+  const register = async (name, email, password, navigationState) => {
+    const response = await api.post('/auth/register', { name, email, password });
+    const { token, ...userData } = response.data;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+
+    api.defaults.headers.common.Authorization = 'Bearer ' + token;
+    setUser(userData);
+    navigate('/', { state: navigationState });
+  };
+
+  const logout = (redirectTo = '/login') => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    navigate('/login');
+    navigate(redirectTo);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

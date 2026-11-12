@@ -1,11 +1,38 @@
 import { useEffect, useState, useContext } from 'react'
 import { io } from 'socket.io-client'
+import { Link } from 'react-router-dom';
 import { api } from '../services/api'
 import { AuthContext } from '../contexts/AuthContext';
+import AppHeader from '../components/AppHeader';
+
+const APPOINTMENT_TIME_ZONE = 'America/Manaus';
+const IMMUTABLE_SCHEDULE_STATUSES = ['cancelled', 'completed'];
+const STATUS_LABELS = {
+  pending: 'Pendente',
+  confirmed: 'Confirmado',
+  cancelled: 'Cancelado',
+  completed: 'Concluído',
+};
+
+const mergeAppointmentUpdate = (appointment, update) => ({
+  ...appointment,
+  ...update,
+  user: update.user && typeof update.user === 'object' ? update.user : appointment.user,
+  service: update.service && typeof update.service === 'object' ? update.service : appointment.service,
+});
 
 const toDateTimeInputValue = (date) => {
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APPOINTMENT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
 };
 
 export default function List() {
@@ -60,7 +87,9 @@ export default function List() {
 
     socket.on('appointment_updated', (updatedAppointment) => {
       setAppointments((prev) =>
-        prev.map((item) => item._id === updatedAppointment._id ? updatedAppointment : item)
+        prev.map((item) => item._id === updatedAppointment._id
+          ? mergeAppointmentUpdate(item, updatedAppointment)
+          : item)
       );
     });
 
@@ -71,11 +100,11 @@ export default function List() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await api.patch(`/appointments/${id}/status`, { status: newStatus });
+      const response = await api.patch(`/appointments/${id}/status`, { status: newStatus });
 
       setAppointments((prev) =>
         prev.map((item) =>
-          item._id === id ? { ...item, status: newStatus } : item
+          item._id === id ? mergeAppointmentUpdate(item, response.data) : item
         )
       );
     } catch (error) {
@@ -111,7 +140,7 @@ export default function List() {
         name: editForm.name.trim(),
         phone: editForm.phone.replace(/\D/g, ''),
         address: editForm.address.trim(),
-        appointmentDate: new Date(editForm.appointmentDate).toISOString()
+        appointmentDate: editForm.appointmentDate
       });
 
       setAppointments((prev) =>
@@ -126,11 +155,11 @@ export default function List() {
   };
 
   return (
-    <main>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Painel de agendamentos</h1>
-        <button onClick={logout}>Sair</button>
-      </header>
+    <main className="page-shell">
+      <AppHeader title="Painel de agendamentos">
+          <Link to="/">Ver calendário</Link>
+          <button type="button" onClick={() => logout()}>Sair</button>
+      </AppHeader>
 
       <p>Lista de agendamentos confirmados e pendentes.</p>
       
@@ -138,7 +167,10 @@ export default function List() {
         <p>Nenhum agendamento encontrado.</p>  
       ) : (
         <ul aria-label="Agendamentos">
-          {appointments.map((item) => (
+          {appointments.map((item) => {
+            const scheduleIsImmutable = IMMUTABLE_SCHEDULE_STATUSES.includes(item.status);
+
+            return (
             <li key={item._id} style={{ marginBottom: '10px' }}>
               {editingId === item._id ? (
                 <form
@@ -208,9 +240,15 @@ export default function List() {
                       type="datetime-local"
                       value={editForm.appointmentDate}
                       onChange={(e) => setEditForm({ ...editForm, appointmentDate: e.target.value })}
+                      disabled={scheduleIsImmutable}
                       required
                     />
                   </div>
+                  {scheduleIsImmutable && (
+                    <p role="status">
+                      A data e o horário não podem ser alterados porque este agendamento está {item.status === 'cancelled' ? 'cancelado' : 'concluído'}.
+                    </p>
+                  )}
                   <div style={{ marginTop: '10px' }}>
                     <button
                       type="submit"
@@ -251,7 +289,11 @@ export default function List() {
                     </div>
                     <div>
                       <dt>Status</dt>
-                      <dd>{item.status}</dd>
+                      <dd>
+                        <span className={`status-badge status-badge--${item.status}`}>
+                          {STATUS_LABELS[item.status] || item.status}
+                        </span>
+                      </dd>
                     </div>
                   </dl>
 
@@ -287,13 +329,14 @@ export default function List() {
                       onClick={() => handleStatusChange(item._id, 'completed')}
                       disabled={item.status === 'completed'}
                     >
-                      Concluido
+                      Concluído
                     </button>
                   </div>
                 </article>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </main>

@@ -1,5 +1,7 @@
-import { useState, useContext } from "react"
-import { AuthContext} from '../contexts/AuthContext';
+import { useState, useContext } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { AuthContext } from '../contexts/AuthContext';
+import AppHeader from '../components/AppHeader';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -7,28 +9,33 @@ export default function Login() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const { login } = useContext(AuthContext);
+  const location = useLocation();
   
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
     try {
-      await login(email, password);
+      await login(email, password, location.state);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Erro ao tentar fazer login.');
     }
   };
 
   return (
-    <div>
-      <h1>Acesso administrativo</h1>
+    <main className="page-shell page-shell--narrow">
+      <AppHeader title="Entrar na sua conta">
+        <Link to="/">Início</Link>
+      </AppHeader>
 
       <form onSubmit={handleSubmit}>
         
         <div>
-          <label>Email:</label>
+          <label htmlFor="login-email">Email:</label>
           <input 
+            id="login-email"
             type="email" 
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required 
@@ -36,9 +43,11 @@ export default function Login() {
         </div>
 
         <div>
-          <label>Senha:</label>
+          <label htmlFor="login-password">Senha:</label>
           <input 
+            id="login-password"
             type="password" 
+            autoComplete="current-password"
             value={password} 
             onChange={(e) => setPassword(e.target.value)} 
             required 
@@ -49,8 +58,7 @@ export default function Login() {
 
       </form>
       {errorMsg && <p style={{ color: 'red', fontWeight: 'bold' }}>{errorMsg}</p>}
-      
-    </div>
+      <p>Não tem conta? <Link to="/registro" state={location.state}>Cadastre-se</Link></p>
+    </main>
   );
 }
-
