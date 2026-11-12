@@ -16,7 +16,8 @@ const register = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { name, email, password, phone, role } = req.body;
+    const { name, password, phone } = req.body;
+    const email = req.body.email.trim().toLowerCase();
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -31,7 +32,7 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: role || 'user',
+      role: 'user',
     });
 
     res.status(201).json({

@@ -16,10 +16,20 @@ const appointmentSchema = new mongoose.Schema(
       type: Date,
       required: [true, 'Appointment date and time are required'],
     },
+    name: {
+      type: String,
+      required: [true, 'Name is required'],
+      trim: true,
+    },
     status: {
       type: String,
       enum: ['pending', 'confirmed', 'completed', 'cancelled'],
       default: 'pending',
+    },
+    phone: {
+    type: String,
+    required: [true, 'Phone is required for confirme appointment'],
+    trim: true
     },
     address: {
       type: String,

@@ -15,3 +15,6 @@ dist/
 build/
 
 test.html
+
+server/create-admin.js
+server/create-appointment.js
